@@ -12,6 +12,7 @@
         .active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
         
+        /* 로고 스타일 추가 */
         .logo-wrapper { margin-bottom: 20px; }
         .logo-img { max-width: 180px; height: auto; border-radius: 12px; }
         
@@ -31,7 +32,6 @@
         .report-card { text-align: left; background: #f8fafc; padding: 18px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
         .report-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px; margin-bottom: 10px; }
         .loading { color: var(--primary-color); font-weight: bold; margin-top: 15px; display: none; }
-        .mobile-tip { font-size: 11px; color: #ef4444; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -39,17 +39,18 @@
 <div class="container">
     <div id="page-id" class="page active">
         <div class="logo-wrapper">
-            <img id="main-logo" src="https://drive.google.com/uc?export=view&id=본인의_파일_ID" alt="Logo" class="logo-img">
+            <img id="main-logo" 
+                 src=""https://drive.google.com/uc?export=view&id=1-sssQYAAxwu-g1jNCm69orJeQu68qVr_"
+                 alt="Logo" class="logo-img">
         </div>
         <h2 style="color:var(--primary-color); margin-top:0;">AI Multi-Lang Test</h2>
         <input type="text" id="examinee-id" placeholder="Examinee ID (수험번호)">
         <input type="password" id="api-key-input" placeholder="Gemini API Key">
-        <button class="btn" onclick="initAndValidate()">Next / 다음</button>
-        <p class="mobile-tip">※ 아이폰 사용자는 무음 스위치를 꺼주세요.</p>
+        <button class="btn" onclick="validateStep1()">Next / 다음</button>
     </div>
 
     <div id="page-test-lang" class="page">
-        <h3>평가 언어 선택</h3>
+        <h3>평가 언어 선택<br><small style="color:#64748b; font-size:0.9rem;">Choose Test Language</small></h3>
         <div class="grid">
             <div class="card" onclick="selectTestLang('ko')">🇰🇷 한국어</div>
             <div class="card" onclick="selectTestLang('en')">🇺🇸 English</div>
@@ -59,7 +60,7 @@
     </div>
 
     <div id="page-guide-lang" class="page">
-        <h3>보조 안내 언어 선택</h3>
+        <h3>보조 안내 언어 선택<br><small style="color:#64748b; font-size:0.9rem;">Choose Support Language</small></h3>
         <div class="grid">
             <div class="card" onclick="selectGuideLang('English')">🇺🇸 English</div>
             <div class="card" onclick="selectGuideLang('Arabic')">🇸🇦 العربية</div>
@@ -70,7 +71,7 @@
     </div>
 
     <div id="page-instructions" class="page">
-        <h3>시험 유의사항</h3>
+        <h3>시험 유의사항 (Instructions)</h3>
         <div class="guide-box" style="border-left: 5px solid var(--primary-color);">
             <span class="guide-label">🇰🇷 한국어</span><br>
             <div id="ko-inst-text">1, 2번은 지문 낭독 및 사진 묘사 문제입니다. 3번은 대화를 듣고 정답을 고르는 문제입니다.</div>
@@ -106,7 +107,7 @@
     </div>
 
     <div id="page-summary" class="page">
-        <h2>Score Report</h2>
+        <h2 id="report-title">Score Report</h2>
         <div id="report-container"></div>
         <div style="background:var(--primary-color); color:white; padding:15px; border-radius:15px; margin:15px 0;">
             <h3 style="margin:0;">Average: <span id="final-avg">0</span></h3>
@@ -116,30 +117,10 @@
 </div>
 
 <script>
-    let USER_API_KEY = "", examineeID = "", testLang = "ko", guideLang = "English", currentQuestion = 1;
+    // 기존 스크립트 내용과 동일
+    let USER_API_KEY = "", examineeID = "", testLang = "", guideLang = "English", currentQuestion = 1;
     let results = { 1: {score:0, fb:""}, 2: {score:0, fb:""}, 3: {score:0, fb:""} };
     let selectedIdx = -1;
-    
-    // [모바일 대응] 전역 오디오 객체 고정
-    const ttsAudio = new Audio();
-
-    // [모바일 대응] 오디오 엔진 강제 해제 함수
-    function initAndValidate() {
-        examineeID = document.getElementById('examinee-id').value.trim();
-        USER_API_KEY = document.getElementById('api-key-input').value.trim();
-        if(!examineeID || !USER_API_KEY) return alert("수험번호와 API 키를 입력하세요.");
-        
-        // 브라우저 오디오 시스템 깨우기 (매우 중요)
-        ttsAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-        ttsAudio.play().then(() => {
-            ttsAudio.pause();
-            console.log("Audio Unlocked");
-            goToPage('page-test-lang');
-        }).catch(e => {
-            console.error("Audio Unlock Failed", e);
-            goToPage('page-test-lang');
-        });
-    }
 
     const supportGuides = {
         "English": "Questions 1-2: Read aloud and describe the photo. Question 3: Listening comprehension. Please follow the signal.",
@@ -175,22 +156,32 @@
         }
     };
 
+    function validateStep1() {
+        examineeID = document.getElementById('examinee-id').value.trim();
+        USER_API_KEY = document.getElementById('api-key-input').value.trim();
+        if(!examineeID || !USER_API_KEY) return alert("수험번호와 API 키를 입력하세요.");
+        goToPage('page-test-lang');
+    }
+
     function selectTestLang(lang) {
         testLang = lang;
         document.querySelectorAll('#page-test-lang .card').forEach(c => c.classList.remove('selected'));
         event.currentTarget.classList.add('selected');
         document.getElementById('lang-next-btn').style.display = 'block';
     }
+
     function handleLangNext() {
         if(testLang === 'ko') goToPage('page-guide-lang');
         else showInstructions();
     }
+
     function selectGuideLang(lang) {
         guideLang = lang;
         document.querySelectorAll('#page-guide-lang .card').forEach(c => c.classList.remove('selected'));
         event.currentTarget.classList.add('selected');
         document.getElementById('guide-next-btn').style.display = 'block';
     }
+
     function showInstructions() {
         if(testLang === 'ko') {
             document.getElementById('support-guide-area').style.display = 'block';
@@ -273,7 +264,7 @@
             try {
                 const teacherName = testData[testLang].teacher;
                 const prompt = `당신은 전문적인 ${teacherName}입니다. 수험생의 음성을 발음, 억양, 유창성 측면에서 한국어로 아주 상세하게 평가하세요. 마지막에 반드시 '종합 점수: XX점' 형식을 포함해야 합니다.`;
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${USER_API_KEY}`, {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${USER_API_KEY}`, {
                     method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "audio/mp4", data: base64 } }]}]})
                 });
                 const data = await res.json();
@@ -311,33 +302,25 @@
             const card = document.createElement('div');
             card.className = 'report-card';
             card.innerHTML = `<div class="report-header"><b>문항 ${i}</b><span>${results[i].score}점</span></div>
-                              <div style="font-size:0.9rem; line-height:1.6;">${results[i].fb.replace(/\n/g, '<br>')}</div>`;
+                              <div style="font-size:0.9rem; line-height:1.6;">${results[i].fb.replace(/\n/g, '<br>')}</div>
+                              ${i < 3 ? `<button style="margin-top:10px; font-size:11px;" onclick="downloadFile(${i})">💾 음원 저장</button>` : ''}`;
             container.appendChild(card);
         }
         document.getElementById('final-avg').innerText = ((results[1].score+results[2].score+results[3].score)/3).toFixed(1);
     }
 
-    // [모바일 대응] 강력한 TTS 재생 함수
+    function downloadFile(n) {
+        const b = results[n].blob;
+        const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+        a.download = `${examineeID}_Q${n}.mp3`; a.click();
+    }
+
     function playTTS(txt, cb) {
         const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${testLang}&client=tw-ob`;
-        
-        ttsAudio.pause();
-        ttsAudio.src = url;
-        ttsAudio.load(); // 모바일에서 소스를 미리 로드
-        
-        ttsAudio.onended = () => {
-            ttsAudio.onended = null;
-            if(cb) cb();
-        };
-
-        const playPromise = ttsAudio.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(e => {
-                console.warn("Playback prevented, trying to force start timer.");
-                // 재생이 막혔을 경우 1.5초 후 자동으로 타이머 시작하여 시험 중단 방지
-                setTimeout(() => { if(cb) cb(); }, 1500);
-            });
-        }
+        const audio = new Audio(url);
+        audio.playbackRate = 1.0;
+        if(cb) audio.onended = cb;
+        audio.play().catch(e => { if(cb) cb(); });
     }
 
     function runTimer(sec, lbl, cb) {
