@@ -3,38 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KDLI AI Speaking & Listening v5.2</title>
+    <title>KDLI AI Evaluation v5.4</title>
     <style>
-        :root { --primary-color: #059669; --bg-color: #f0fdf4; --card-bg: #ffffff; }
+        :root { --primary-color: #059669; --bg-color: #f0fdf4; --card-bg: #ffffff; --score-color: #10b981; }
         body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); margin: 0; padding: 10px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .container { width: 100%; max-width: 500px; background: var(--card-bg); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); box-sizing: border-box; }
-        .page { display: none; text-align: center; }
+        .page { display: none; text-align: center; animation: fadeIn 0.3s ease; }
         .active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
         .btn { width: 100%; background: var(--primary-color); color: white; border: none; padding: 16px; border-radius: 12px; font-size: 17px; font-weight: bold; cursor: pointer; margin: 8px 0; }
         input { width: 100%; padding: 15px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 16px; text-align: center; box-sizing: border-box; margin-bottom: 12px; outline:none; }
-        input:focus { border-color: var(--primary-color); }
-
+        
         .question-box { background: #f8fafc; padding: 20px; border-radius: 15px; border-left: 5px solid var(--primary-color); text-align: left; margin-bottom: 20px; }
         .timer-clock { font-size: 40px; font-weight: 800; margin: 15px 0; color: #1e293b; }
         .status-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
         .progress { height: 100%; background: var(--primary-color); width: 0%; transition: width 1s linear; }
 
-        .option-btn { width: 100%; text-align: left; background: white; border: 2px solid #e2e8f0; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 14px; cursor: pointer; }
-        .option-btn.selected { border-color: var(--primary-color); background: #f0fdf4; font-weight: bold; }
+        /* 객관식 보기 스타일 */
+        .option-container { margin-top: 20px; }
+        .option-btn { width: 100%; text-align: left; background: white; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; margin-bottom: 10px; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        .option-btn:hover { border-color: var(--primary-color); background: #f0fdf4; }
+        .option-btn.selected { border-color: var(--primary-color); background: #f0fdf4; box-shadow: 0 0 0 2px var(--primary-color); font-weight: bold; }
         
+        .feedback-area { text-align: left; background: #f1f5f9; padding: 15px; border-radius: 12px; font-size: 0.95rem; line-height: 1.6; margin-top: 15px; max-height: 200px; overflow-y: auto; }
         .loading { color: var(--primary-color); font-weight: bold; margin-top: 15px; display: none; }
-        .instruction-box { text-align: left; background: #f8fafc; padding: 15px; border-radius: 10px; margin-bottom: 15px; font-size: 0.9rem; border: 1px solid #e2e8f0; }
+        .instruction-box { text-align: left; background: #f8fafc; padding: 15px; border-radius: 10px; margin-bottom: 15px; font-size: 0.85rem; border: 1px solid #e2e8f0; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="page-id" class="page active">
-        <h2 style="color:var(--primary-color)">KDLI AI 평가 시스템</h2>
-        <input type="text" id="examinee-id" placeholder="수험번호 (Examinee ID)">
+        <h2 style="color:var(--primary-color)">AI 한국어 평가 v5.4</h2>
+        <input type="text" id="examinee-id" placeholder="수험번호 입력">
         <input type="password" id="api-key-input" placeholder="Gemini API Key 입력">
-        <button class="btn" onclick="validateAndGoToLang()">테스트 접속</button>
-        <p style="font-size: 11px; color: #94a3b8;">* 올바른 키가 아니면 테스트 모드로 작동합니다.</p>
+        <button class="btn" onclick="validateAndGoToLang()">접속하기</button>
     </div>
 
     <div id="page-lang" class="page">
@@ -49,8 +53,8 @@
         <h3>시험 유의사항</h3>
         <div class="instruction-box">
             <strong style="color:var(--primary-color)">🇰🇷 한국어 가이드</strong><br>
-            - 안내 음성 종료 후 '녹음 중' 표시가 뜨면 답변하세요.<br>
-            - 3번 문항은 듣기 문제를 듣고 가장 적절한 답변을 고른 뒤, 이유를 말하십시오.
+            - 안내 종료 후 '녹음 중' 표시가 뜨면 답변하세요.<br>
+            - 3번 문항은 정답을 클릭한 뒤, 정답 문장을 소리 내어 읽으십시오.
         </div>
         <div class="instruction-box">
             <strong id="translated-title">Guide</strong>
@@ -64,61 +68,72 @@
             <span id="q-title" style="font-weight:bold; color:var(--primary-color)"></span>
             <span id="display-id"></span>
         </div>
-        <div id="image-area" style="display:none; margin-bottom:15px;"><img id="question-image" src="" style="width:100%; border-radius:10px; max-height:200px; object-fit:contain;"></div>
+        <div id="image-area" style="display:none; margin-bottom:15px;"><img id="question-image" src="" style="width:100%; border-radius:10px; max-height:150px; object-fit:contain;"></div>
+        
         <div class="question-box">
             <p id="q-instruction" style="font-weight:bold; color:var(--primary-color); margin-top:0;"></p>
-            <p id="target-text"></p>
-            <div id="listening-options" style="display:none; margin-top:15px;">
+            <p id="target-text" style="font-size: 1.1rem;"></p>
+            
+            <div id="option-area" class="option-container" style="display:none;">
                 <div class="option-btn" onclick="selectOption(0)">1. <span id="opt0"></span></div>
                 <div class="option-btn" onclick="selectOption(1)">2. <span id="opt1"></span></div>
                 <div class="option-btn" onclick="selectOption(2)">3. <span id="opt2"></span></div>
                 <div class="option-btn" onclick="selectOption(3)">4. <span id="opt3"></span></div>
             </div>
         </div>
-        <div id="recording-msg" style="color:#ef4444; font-weight:bold; display:none;">● 녹음 중 (Recording...)</div>
+
+        <div id="recording-msg" style="color:#ef4444; font-weight:bold; display:none; margin-bottom:10px;">● 답변 녹음 중...</div>
         <div id="timer-label" style="font-size:13px; color:#64748b;">대기</div>
         <div class="timer-clock" id="timer-display">00:00</div>
         <div class="status-bar"><div class="progress" id="progress-bar"></div></div>
-        <div id="loading-msg" class="loading">⏳ 분석 중...</div>
+        <div id="loading-msg" class="loading">⏳ AI 분석 중...</div>
+    </div>
+
+    <div id="page-feedback" class="page">
+        <h3 id="fb-q-title" style="color:var(--primary-color)">평가 결과</h3>
+        <h2 id="fb-score" style="color:var(--score-color); margin: 10px 0;">--점</h2>
+        <div id="fb-text" class="feedback-area"></div>
+        <button class="btn" onclick="playModelTTS()">🔊 모범 발음 듣기</button>
+        <button class="btn" style="background:#1e293b;" onclick="nextStep()">다음으로 ➔</button>
     </div>
 
     <div id="page-summary" class="page">
-        <h3>최종 평가 리포트</h3>
+        <h3>최종 시험 결과</h3>
         <div id="final-results" style="text-align:left; background:#f8fafc; padding:20px; border-radius:15px; margin-bottom:20px;"></div>
-        <button class="btn" onclick="location.reload()" style="background:#64748b;">종료 및 초기화</button>
+        <button class="btn" onclick="location.reload()" style="background:#64748b;">초기화 및 종료</button>
     </div>
 </div>
 
 <script>
     let USER_API_KEY = "";
     let examineeID = "", selectedLang = "", currentQuestion = 1;
-    let scores = { 1: 0, 2: 0, 3: 0 }, recordedBlobs = { 1: null, 2: null, 3: null };
-    let selectedQ3Option = -1;
+    let scores = { 1: 0, 2: 0, 3: 0 }, feedbacks = { 1: "", 2: "", 3: "" };
+    let recordedBlobs = { 1: null, 2: null, 3: null };
+    let selectedIdx = -1;
 
     const translations = {
-        "English": { title: "🇬🇧 Guide", list: "Wait for the instructions to end. Speak after the 'Recording' mark appears." },
-        "Arabic": { title: "🇸🇦 تعليمات", list: "انتظر انتهاء التعليمات. تحدث بعد ظهور علامة 'تسجيل'." },
-        "Russian": { title: "🇷🇺 Правила", list: "Дождитесь окончания инструкций. Говорите после появления знака «Запись»." },
-        "Vietnamese": { title: "🇻🇳 Hướng dẫn", list: "Đợi hướng dẫn kết thúc. Nói sau khi dấu hiệu 'Đang ghi âm' xuất hiện." }
+        "English": { title: "🇬🇧 Guide", list: "Listen to the instruction and speak after the beep. For Q3, select the best answer and read it aloud." },
+        "Arabic": { title: "🇸🇦 تعليمات", list: "استمع إلى التعليمات وتحدث بعد الصافرة. للسؤال الثالث، اختر أفضل إجابة واقرأها بصوت عالٍ." },
+        "Russian": { title: "🇷🇺 Правила", list: "Слушайте инструкции и говорите после сигнала. В Q3 выберите лучший ответ и прочитайте его вслух." },
+        "Vietnamese": { title: "🇻🇳 Hướng dẫn", list: "Nghe hướng dẫn và nói sau tiếng bíp. Đối với Q3, chọn câu trả lời đúng và đọc to." }
     };
 
     const questions = {
-        1: { title: "문항 1", instruction: "지문을 소리 내어 읽으세요.", text: "국방어학원 한국어 과정에 오신 것을 환영합니다. 여러분의 건승을 빕니다.", type: "speak", prep: 5, resp: 10 },
-        2: { title: "문항 2", instruction: "사진을 보고 상황을 묘사하세요.", text: "(사진 속 인물들의 동작과 장소를 설명하십시오)", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400", type: "speak", prep: 5, resp: 15 },
+        1: { title: "문항 1. 지문 낭독", instruction: "다음 지문을 소리 내어 읽으세요.", text: "국방어학원에 오신 것을 환영합니다. 본 과정은 외국군 장교들의 한국어 능력을 향상시키기 위해 설계되었습니다.", type: "speak", prep: 5, resp: 12 },
+        2: { title: "문항 2. 사진 묘사", instruction: "사진을 보고 상황을 한국어로 묘사하세요.", text: "(사진 속 인물들이 무엇을 하고 있는지 설명하십시오)", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400", type: "speak", prep: 5, resp: 15 },
         3: { 
-            title: "문항 3", 
-            instruction: "대화를 듣고 이어질 대화로 바른 것을 고르세요.", 
-            file: "audio/q3_listening.wav", // 여기에 실제 음원 파일 경로 입력
-            audioText: "실례합니다, 국방어학원 사무실이 몇 층에 있습니까?", // 파일 없을 때 대비용
-            options: ["저는 한국 요리를 좋아합니다.", "사무실은 이 건물 3층에 있습니다.", "어제 친구와 만났습니다.", "제 고향은 아주 아름답습니다."],
-            answer: 1, type: "listen_choose", prep: 3, resp: 10 
+            title: "문항 3. 듣고 고르기", 
+            instruction: "대화를 듣고 이어질 말로 가장 알맞은 번호를 고른 뒤, 정답 문장을 읽으세요.", 
+            audioText: "실례합니다, 국방어학원 사무실이 몇 층에 있습니까?", 
+            options: ["저는 한국 음식을 좋아합니다.", "사무실은 이 건물 3층에 있습니다.", "어제 친구를 만나서 즐거웠습니다.", "제 고향은 산이 아주 많습니다."],
+            answer: 1, type: "choose", prep: 4, resp: 10 
         }
     };
 
     function validateAndGoToLang() {
         examineeID = document.getElementById('examinee-id').value.trim();
         USER_API_KEY = document.getElementById('api-key-input').value.trim();
-        if(!examineeID) return alert("ID를 입력하세요.");
+        if(!examineeID) return alert("수험번호를 입력하세요.");
         goToPage('page-lang');
     }
 
@@ -132,24 +147,32 @@
 
     function startQuestion(num) {
         currentQuestion = num;
+        selectedIdx = -1; // 초기화
         const q = questions[num];
         document.getElementById('display-id').innerText = `ID: ${examineeID}`;
         document.getElementById('q-title').innerText = q.title;
         document.getElementById('q-instruction').innerText = q.instruction;
         document.getElementById('target-text').innerText = q.text || "";
+        
+        // 이미지 및 객관식 영역 제어
         document.getElementById('image-area').style.display = q.image ? 'block' : 'none';
         if(q.image) document.getElementById('question-image').src = q.image;
-
-        if(q.type === 'listen_choose') {
-            document.getElementById('listening-options').style.display = 'block';
-            q.options.forEach((opt, i) => document.getElementById(`opt${i}`).innerText = opt);
-        } else { document.getElementById('listening-options').style.display = 'none'; }
+        
+        const optArea = document.getElementById('option-area');
+        if(q.type === 'choose') {
+            optArea.style.display = 'block';
+            q.options.forEach((opt, i) => {
+                const btn = document.getElementById(`opt${i}`);
+                btn.innerText = opt;
+                btn.parentElement.classList.remove('selected');
+            });
+        } else { optArea.style.display = 'none'; }
 
         goToPage('page-exam');
-        initProcess(q);
+        initExamProcess(q);
     }
 
-    async function initProcess(q) {
+    async function initExamProcess(q) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         let chunks = [];
@@ -160,31 +183,27 @@
             analyze(blob);
         };
 
-        const startRecordingFlow = () => {
-            runTimer(q.prep, "준비", () => {
+        const startTimer = () => {
+            runTimer(q.prep, "준비 시간", () => {
                 chunks = [];
                 mediaRecorder.start();
                 document.getElementById('recording-msg').style.display = 'block';
-                runTimer(q.resp, "녹음 중", () => {
+                runTimer(q.resp, "답변 및 녹음 중", () => {
                     mediaRecorder.stop();
                     document.getElementById('recording-msg').style.display = 'none';
                 });
             });
         };
 
-        // 음원 파일 재생 로직
-        if (q.file) {
-            const audio = new Audio(q.file);
-            audio.onended = startRecordingFlow;
-            audio.play().catch(() => playTTS(q.audioText, startRecordingFlow));
-        } else {
-            playTTS(q.audioText || q.instruction, startRecordingFlow);
-        }
+        // 문제 TTS 재생 (3번은 듣기 지문 재생)
+        playTTS(q.type === 'choose' ? q.audioText : q.instruction, startTimer);
     }
 
     function selectOption(idx) {
-        selectedQ3Option = idx;
-        document.querySelectorAll('.option-btn').forEach((b, i) => b.classList.toggle('selected', i === idx));
+        selectedIdx = idx;
+        document.querySelectorAll('.option-btn').forEach((b, i) => {
+            b.classList.toggle('selected', i === idx);
+        });
     }
 
     async function analyze(blob) {
@@ -194,43 +213,72 @@
         reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
             try {
+                const q = questions[currentQuestion];
+                let prompt = `한국어 교관으로서 채점하세요. 반드시 '종합 점수: XX점' 형식을 포함하고 피드백을 주세요.`;
+                
+                if(q.type === 'choose') {
+                    const isCorrect = (selectedIdx === q.answer) ? "정답" : "오답";
+                    prompt += ` 수험생이 선택한 번호는 ${selectedIdx + 1}번이며, 이는 ${isCorrect}입니다. 이 점을 반영하여 피드백하세요.`;
+                }
+
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${USER_API_KEY}`, {
-                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: "채점하고 '종합 점수: XX점'을 포함해 피드백하세요." }, { inline_data: { mime_type: "audio/mp4", data: base64 } }]}]})
+                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "audio/mp4", data: base64 } }]}]})
                 });
                 const data = await res.json();
                 const fb = data.candidates[0].content.parts[0].text;
                 scores[currentQuestion] = parseInt(fb.match(/종합 점수:\s*(\d+)점/)[1]) || 80;
-            } catch(e) { scores[currentQuestion] = Math.floor(Math.random()*15)+85; }
-            
+                feedbacks[currentQuestion] = fb;
+            } catch(e) {
+                scores[currentQuestion] = 85;
+                feedbacks[currentQuestion] = "테스트 모드: 답변이 안정적으로 기록되었습니다.";
+            }
             document.getElementById('loading-msg').style.display = 'none';
-            if(currentQuestion < 3) startQuestion(currentQuestion + 1);
-            else showFinal();
+            showFeedback();
         };
+    }
+
+    function showFeedback() {
+        goToPage('page-feedback');
+        document.getElementById('fb-score').innerText = `${scores[currentQuestion]}점`;
+        document.getElementById('fb-text').innerHTML = feedbacks[currentQuestion].replace(/\n/g, '<br>');
+    }
+
+    function nextStep() {
+        if(currentQuestion < 3) startQuestion(currentQuestion + 1);
+        else showFinal();
     }
 
     function showFinal() {
         goToPage('page-summary');
         const container = document.getElementById('final-results');
-        let html = `<h4>수험번호: ${examineeID}</h4>`;
+        let html = `<p>수험번호: <strong>${examineeID}</strong></p>`;
         for(let i=1; i<=3; i++) {
-            html += `<div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid #eee; padding:10px 0;">
-                <span>${i}번: <strong>${scores[i]}점</strong></span>
-                <button onclick="downloadSingle(${i})" style="padding:5px 10px; background:#475569; color:white; border:none; border-radius:5px;">저장</button>
+            html += `<div style="display:flex; justify-content:space-between; margin-bottom:12px; border-bottom:1px solid #eee; padding-bottom:8px;">
+                <span>${i}번 문항: ${scores[i]}점</span>
+                <button onclick="downloadFile(${i})" style="padding:5px 10px; background:#475569; color:white; border:none; border-radius:6px; font-size:12px;">파일 저장</button>
             </div>`;
         }
+        html += `<h3 style="text-align:right; color:var(--primary-color);">평균: ${((scores[1]+scores[2]+scores[3])/3).toFixed(1)}점</h3>`;
         container.innerHTML = html;
     }
 
-    function downloadSingle(n) {
-        const b = recordedBlobs[n];
+    function downloadFile(n) {
+        const b = recordedBlobs[n]; if(!b) return;
         const a = document.createElement('a'); a.href = URL.createObjectURL(b);
         a.download = `${examineeID}_Q${n}.mp3`; a.click();
     }
 
     function playTTS(txt, cb) {
         const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=ko&client=tw-ob`);
+        audio.playbackRate = 1.15;
         if(cb) audio.onended = cb;
-        audio.play().catch(() => cb());
+        audio.play().catch(e => { if(cb) cb(); });
+    }
+
+    function playModelTTS() {
+        const q = questions[currentQuestion];
+        const text = (q.type === 'choose') ? q.options[q.answer] : (q.text || q.instruction);
+        playTTS(text);
     }
 
     function runTimer(sec, lbl, cb) {
@@ -246,6 +294,7 @@
     function goToPage(id) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(id).classList.add('active');
+        window.scrollTo(0,0);
     }
 </script>
 </body>
