@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KDLI AI Evaluation v7.2</title>
+    <style>
+        :root { --primary-color: #059669; --bg-color: #f0fdf4; --card-bg: #ffffff; --accent-color: #10b981; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); margin: 0; padding: 10px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 600px; background: var(--card-bg); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); box-sizing: border-box; }
+        .page { display: none; text-align: center; animation: fadeIn 0.4s ease; }
+        .active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+        
+        /* 로고 스타일 추가 */
+        .logo-wrapper { margin-bottom: 20px; }
+        .logo-img { max-width: 180px; height: auto; border-radius: 12px; }
+        
+        .btn { width: 100%; background: var(--primary-color); color: white; border: none; padding: 16px; border-radius: 12px; font-size: 17px; font-weight: bold; cursor: pointer; margin: 8px 0; }
+        input { width: 100%; padding: 15px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 16px; text-align: center; box-sizing: border-box; margin-bottom: 12px; outline:none; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .card { padding: 15px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; background: white; transition: 0.2s; font-weight: bold; }
+        .card.selected { border-color: var(--primary-color); background: #f0fdf4; }
+        .question-box { background: #f8fafc; padding: 18px; border-radius: 15px; border-left: 5px solid var(--primary-color); text-align: left; margin-bottom: 15px; }
+        .guide-box { background: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 10px; text-align: left; font-size: 0.9rem; line-height: 1.6; }
+        .guide-label { display: inline-block; padding: 2px 8px; background: var(--primary-color); color: white; border-radius: 5px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px; }
+        .timer-clock { font-size: 40px; font-weight: 800; margin: 10px 0; color: #1e293b; }
+        .status-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+        .progress { height: 100%; background: var(--primary-color); width: 0%; transition: width 1s linear; }
+        .option-btn { width: 100%; text-align: left; background: white; border: 1px solid #cbd5e1; padding: 12px; border-radius: 10px; margin-bottom: 8px; font-size: 14px; cursor: pointer; }
+        .option-btn.selected { border-color: var(--primary-color); background: #f0fdf4; font-weight: bold; }
+        .report-card { text-align: left; background: #f8fafc; padding: 18px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
+        .report-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 8px; margin-bottom: 10px; }
+        .loading { color: var(--primary-color); font-weight: bold; margin-top: 15px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="page-id" class="page active">
+        <div class="logo-wrapper">
+            <img id="main-logo" 
+                 src=""https://drive.google.com/uc?export=view&id=1-sssQYAAxwu-g1jNCm69orJeQu68qVr_"
+                 alt="Logo" class="logo-img">
+        </div>
+        <h2 style="color:var(--primary-color); margin-top:0;">AI Multi-Lang Test</h2>
+        <input type="text" id="examinee-id" placeholder="Examinee ID (수험번호)">
+        <input type="password" id="api-key-input" placeholder="Gemini API Key">
+        <button class="btn" onclick="validateStep1()">Next / 다음</button>
+    </div>
+
+    <div id="page-test-lang" class="page">
+        <h3>평가 언어 선택<br><small style="color:#64748b; font-size:0.9rem;">Choose Test Language</small></h3>
+        <div class="grid">
+            <div class="card" onclick="selectTestLang('ko')">🇰🇷 한국어</div>
+            <div class="card" onclick="selectTestLang('en')">🇺🇸 English</div>
+            <div class="card" onclick="selectTestLang('zh')">🇨🇳 中文</div>
+        </div>
+        <button class="btn" id="lang-next-btn" style="display:none;" onclick="handleLangNext()">Next / 다음</button>
+    </div>
+
+    <div id="page-guide-lang" class="page">
+        <h3>보조 안내 언어 선택<br><small style="color:#64748b; font-size:0.9rem;">Choose Support Language</small></h3>
+        <div class="grid">
+            <div class="card" onclick="selectGuideLang('English')">🇺🇸 English</div>
+            <div class="card" onclick="selectGuideLang('Arabic')">🇸🇦 العربية</div>
+            <div class="card" onclick="selectGuideLang('Russian')">🇷🇺 Русский</div>
+            <div class="card" onclick="selectGuideLang('Vietnamese')">🇻🇳 Tiếng Việt</div>
+        </div>
+        <button class="btn" id="guide-next-btn" style="display:none;" onclick="showInstructions()">Confirm / 확인</button>
+    </div>
+
+    <div id="page-instructions" class="page">
+        <h3>시험 유의사항 (Instructions)</h3>
+        <div class="guide-box" style="border-left: 5px solid var(--primary-color);">
+            <span class="guide-label">🇰🇷 한국어</span><br>
+            <div id="ko-inst-text">1, 2번은 지문 낭독 및 사진 묘사 문제입니다. 3번은 대화를 듣고 정답을 고르는 문제입니다.</div>
+        </div>
+        <div id="support-guide-area" class="guide-box" style="border-left: 5px solid #64748b;">
+            <span class="guide-label" id="support-lang-label">Support Language</span><br>
+            <div id="support-inst-text"></div>
+        </div>
+        <button class="btn" onclick="startQuestion(1)">시험 시작 (Start Test)</button>
+    </div>
+
+    <div id="page-exam" class="page">
+        <div style="display:flex; justify-content: space-between; font-size: 13px; margin-bottom:10px;">
+            <span id="q-title" style="font-weight:bold; color:var(--primary-color)"></span>
+            <span id="display-id"></span>
+        </div>
+        <div id="image-area" style="display:none; margin-bottom:10px;"><img id="question-image" src="" style="width:100%; border-radius:10px; max-height:140px; object-fit:contain;"></div>
+        <div class="question-box">
+            <p id="q-instruction" style="font-weight:bold; color:var(--primary-color); margin-top:0;"></p>
+            <p id="target-text" style="font-size: 1.1rem;"></p>
+            <div id="option-area" class="option-container" style="display:none;">
+                <div class="option-btn" onclick="selectOption(0)">1. <span id="opt0"></span></div>
+                <div class="option-btn" onclick="selectOption(1)">2. <span id="opt1"></span></div>
+                <div class="option-btn" onclick="selectOption(2)">3. <span id="opt2"></span></div>
+                <div class="option-btn" onclick="selectOption(3)">4. <span id="opt3"></span></div>
+            </div>
+        </div>
+        <div id="recording-msg" style="display:none; color:#ef4444; font-weight:bold; margin-bottom:10px;">● Recording (녹음 중)...</div>
+        <div id="timer-label" style="font-size:13px; color:#64748b;">Waiting</div>
+        <div class="timer-clock" id="timer-display">00:00</div>
+        <div class="status-bar"><div class="progress" id="progress-bar"></div></div>
+        <div id="loading-msg" class="loading">⏳ Analyzing / 분석 중...</div>
+    </div>
+
+    <div id="page-summary" class="page">
+        <h2 id="report-title">Score Report</h2>
+        <div id="report-container"></div>
+        <div style="background:var(--primary-color); color:white; padding:15px; border-radius:15px; margin:15px 0;">
+            <h3 style="margin:0;">Average: <span id="final-avg">0</span></h3>
+        </div>
+        <button class="btn" onclick="location.reload()" style="background:#64748b;">Restart / 초기화</button>
+    </div>
+</div>
+
+<script>
+    // 기존 스크립트 내용과 동일
+    let USER_API_KEY = "", examineeID = "", testLang = "", guideLang = "English", currentQuestion = 1;
+    let results = { 1: {score:0, fb:""}, 2: {score:0, fb:""}, 3: {score:0, fb:""} };
+    let selectedIdx = -1;
+
+    const supportGuides = {
+        "English": "Questions 1-2: Read aloud and describe the photo. Question 3: Listening comprehension. Please follow the signal.",
+        "Arabic": "س 1-2: اقرأ بصوت عالٍ وصف الصورة. س 3: فهم مسموع. يرجى اتباع الإشارة.",
+        "Russian": "Q1-Q2: Чтение вслух и описание фото. Q3: Аудирование. Пожалуйста, следуйте сигналу.",
+        "Vietnamese": "Câu 1-2: Đọc to và mô tả ảnh. Câu 3: Nghe hiểu. Vui lòng làm theo tín hiệu."
+    };
+
+    const testData = {
+        'ko': {
+            teacher: "한국어 선생님",
+            questions: {
+                1: { title: "문항 1", instruction: "지문을 소리 내어 읽으세요.", text: "국방어학원에 오신 것을 환영합니다.", type: "speak", prep: 5, resp: 10 },
+                2: { title: "문항 2", instruction: "사진을 보고 상황을 묘사하세요.", text: "(사진의 장소와 동작을 설명하세요)", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400", type: "speak", prep: 5, resp: 15 },
+                3: { title: "문항 3", instruction: "대화를 듣고 알맞은 답을 고르세요.", audioText: "어디에 가십니까?", options: ["학교에 갑니다.", "어제 갔습니다.", "친구가 옵니다.", "날씨가 좋습니다."], answer: 0, type: "choose", resp: 12 }
+            }
+        },
+        'en': {
+            teacher: "English Teacher",
+            questions: {
+                1: { title: "Question 1", instruction: "Read the text aloud.", text: "Welcome to the international military school.", type: "speak", prep: 5, resp: 10 },
+                2: { title: "Question 2", instruction: "Describe the photo.", text: "(Explain what is happening in the picture)", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400", type: "speak", prep: 5, resp: 15 },
+                3: { title: "Question 3", instruction: "Listen and choose the best response.", audioText: "How's the weather today?", options: ["It's sunny.", "I like pizza.", "At the library.", "Fine, thank you."], answer: 0, type: "choose", resp: 12 }
+            }
+        },
+        'zh': {
+            teacher: "中文老师",
+            questions: {
+                1: { title: "第一题", instruction: "请朗读下面的句子。", text: "欢迎来到国防语言学院。", type: "speak", prep: 5, resp: 10 },
+                2: { title: "第二题", instruction: "请描述这张图片。", text: "(请详细描述图片中的场景)", image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400", type: "speak", prep: 5, resp: 15 },
+                3: { title: "第三题", instruction: "听对话，选择正确的答案。", audioText: "你吃饭了吗？", options: ["我吃了。", "他是老师。", "很好看。", "去商店。"], answer: 0, type: "choose", resp: 12 }
+            }
+        }
+    };
+
+    function validateStep1() {
+        examineeID = document.getElementById('examinee-id').value.trim();
+        USER_API_KEY = document.getElementById('api-key-input').value.trim();
+        if(!examineeID || !USER_API_KEY) return alert("수험번호와 API 키를 입력하세요.");
+        goToPage('page-test-lang');
+    }
+
+    function selectTestLang(lang) {
+        testLang = lang;
+        document.querySelectorAll('#page-test-lang .card').forEach(c => c.classList.remove('selected'));
+        event.currentTarget.classList.add('selected');
+        document.getElementById('lang-next-btn').style.display = 'block';
+    }
+
+    function handleLangNext() {
+        if(testLang === 'ko') goToPage('page-guide-lang');
+        else showInstructions();
+    }
+
+    function selectGuideLang(lang) {
+        guideLang = lang;
+        document.querySelectorAll('#page-guide-lang .card').forEach(c => c.classList.remove('selected'));
+        event.currentTarget.classList.add('selected');
+        document.getElementById('guide-next-btn').style.display = 'block';
+    }
+
+    function showInstructions() {
+        if(testLang === 'ko') {
+            document.getElementById('support-guide-area').style.display = 'block';
+            document.getElementById('support-lang-label').innerText = guideLang;
+            document.getElementById('support-inst-text').innerText = supportGuides[guideLang];
+        } else {
+            document.getElementById('support-guide-area').style.display = 'none';
+        }
+        goToPage('page-instructions');
+    }
+
+    function startQuestion(num) {
+        currentQuestion = num; selectedIdx = -1;
+        const q = testData[testLang].questions[num];
+        document.getElementById('display-id').innerText = `ID: ${examineeID}`;
+        document.getElementById('q-title').innerText = q.title;
+        document.getElementById('q-instruction').innerText = q.instruction;
+        document.getElementById('target-text').innerText = (q.type === 'speak') ? q.text : "";
+        document.getElementById('image-area').style.display = q.image ? 'block' : 'none';
+        if(q.image) document.getElementById('question-image').src = q.image;
+        
+        const optArea = document.getElementById('option-area');
+        if(q.type === 'choose') {
+            optArea.style.display = 'block';
+            q.options.forEach((opt, i) => {
+                const btn = document.getElementById(`opt${i}`).parentNode;
+                btn.classList.remove('selected');
+                document.getElementById(`opt${i}`).innerText = opt;
+            });
+        } else { optArea.style.display = 'none'; }
+
+        goToPage('page-exam');
+        runProcess(q);
+    }
+
+    async function runProcess(q) {
+        if (q.type === 'speak') {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            let chunks = [];
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/mp4' });
+                results[currentQuestion].blob = blob;
+                analyze(blob);
+            };
+
+            playTTS(q.instruction, () => {
+                runTimer(q.prep, "Ready (준비)", () => {
+                    chunks = []; mediaRecorder.start();
+                    document.getElementById('recording-msg').style.display = 'block';
+                    runTimer(q.resp, "Recording (녹음 중)", () => {
+                        mediaRecorder.stop();
+                        document.getElementById('recording-msg').style.display = 'none';
+                    });
+                });
+            });
+        } else {
+            document.getElementById('timer-label').innerText = "Listening (듣는 중)...";
+            document.getElementById('timer-display').innerText = "00:00";
+            document.getElementById('progress-bar').style.width = "0%";
+            
+            playTTS(q.audioText, () => {
+                runTimer(q.resp, "Choose Answer (정답 선택)", () => { scoreChoice(); });
+            });
+        }
+    }
+
+    function selectOption(idx) {
+        selectedIdx = idx;
+        document.querySelectorAll('.option-btn').forEach((b, i) => b.classList.toggle('selected', i === idx));
+    }
+
+    async function analyze(blob) {
+        document.getElementById('loading-msg').style.display = 'block';
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = async () => {
+            const base64 = reader.result.split(',')[1];
+            try {
+                const teacherName = testData[testLang].teacher;
+                const prompt = `당신은 전문적인 ${teacherName}입니다. 수험생의 음성을 발음, 억양, 유창성 측면에서 한국어로 아주 상세하게 평가하세요. 마지막에 반드시 '종합 점수: XX점' 형식을 포함해야 합니다.`;
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${USER_API_KEY}`, {
+                    method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "audio/mp4", data: base64 } }]}]})
+                });
+                const data = await res.json();
+                const fb = data.candidates[0].content.parts[0].text;
+                const scoreMatch = fb.match(/종합 점수:\s*(\d+)점/);
+                results[currentQuestion].score = scoreMatch ? parseInt(scoreMatch[1]) : 80;
+                results[currentQuestion].fb = fb;
+            } catch(e) { 
+                results[currentQuestion].score = 0; 
+                results[currentQuestion].fb = "평가 중 오류가 발생했습니다."; 
+            }
+            document.getElementById('loading-msg').style.display = 'none';
+            next();
+        };
+    }
+
+    function scoreChoice() {
+        const q = testData[testLang].questions[3];
+        const isCorrect = selectedIdx === q.answer;
+        results[3].score = isCorrect ? 100 : 0;
+        results[3].fb = isCorrect ? "정답입니다! 질문을 정확히 이해하셨네요." : `아쉽습니다. 정답은 ${q.answer + 1}번이었습니다.`;
+        next();
+    }
+
+    function next() {
+        if(currentQuestion < 3) startQuestion(currentQuestion + 1);
+        else showFinal();
+    }
+
+    function showFinal() {
+        goToPage('page-summary');
+        const container = document.getElementById('report-container');
+        container.innerHTML = "";
+        for(let i=1; i<=3; i++) {
+            const card = document.createElement('div');
+            card.className = 'report-card';
+            card.innerHTML = `<div class="report-header"><b>문항 ${i}</b><span>${results[i].score}점</span></div>
+                              <div style="font-size:0.9rem; line-height:1.6;">${results[i].fb.replace(/\n/g, '<br>')}</div>
+                              ${i < 3 ? `<button style="margin-top:10px; font-size:11px;" onclick="downloadFile(${i})">💾 음원 저장</button>` : ''}`;
+            container.appendChild(card);
+        }
+        document.getElementById('final-avg').innerText = ((results[1].score+results[2].score+results[3].score)/3).toFixed(1);
+    }
+
+    function downloadFile(n) {
+        const b = results[n].blob;
+        const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+        a.download = `${examineeID}_Q${n}.mp3`; a.click();
+    }
+
+    function playTTS(txt, cb) {
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${testLang}&client=tw-ob`;
+        const audio = new Audio(url);
+        audio.playbackRate = 1.0;
+        if(cb) audio.onended = cb;
+        audio.play().catch(e => { if(cb) cb(); });
+    }
+
+    function runTimer(sec, lbl, cb) {
+        let left = sec; 
+        document.getElementById('timer-label').innerText = lbl;
+        document.getElementById('timer-display').innerText = `00:${left < 10 ? '0'+left : left}`;
+        document.getElementById('progress-bar').style.width = "0%";
+        
+        const timer = setInterval(() => {
+            left--;
+            document.getElementById('timer-display').innerText = `00:${left < 10 ? '0'+left : left}`;
+            document.getElementById('progress-bar').style.width = `${((sec-left)/sec)*100}%`;
+            if(left <= 0) { clearInterval(timer); cb(); }
+        }, 1000);
+    }
+
+    function goToPage(id) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        window.scrollTo(0,0);
+    }
+</script>
+</body>
+</html>
