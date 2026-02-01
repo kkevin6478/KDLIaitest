@@ -12,7 +12,6 @@
         .active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
         
-        /* 로고 스타일 추가 */
         .logo-wrapper { margin-bottom: 20px; }
         .logo-img { max-width: 180px; height: auto; border-radius: 12px; }
         
@@ -39,9 +38,7 @@
 <div class="container">
     <div id="page-id" class="page active">
         <div class="logo-wrapper">
-            <img id="main-logo" 
-                 src=""https://drive.google.com/uc?export=view&id=1-sssQYAAxwu-g1jNCm69orJeQu68qVr_"
-                 alt="Logo" class="logo-img">
+            <img id="main-logo" src="https://drive.google.com/uc?export=view&id=본인의_파일_ID" alt="Logo" class="logo-img">
         </div>
         <h2 style="color:var(--primary-color); margin-top:0;">AI Multi-Lang Test</h2>
         <input type="text" id="examinee-id" placeholder="Examinee ID (수험번호)">
@@ -117,10 +114,12 @@
 </div>
 
 <script>
-    // 기존 스크립트 내용과 동일
     let USER_API_KEY = "", examineeID = "", testLang = "", guideLang = "English", currentQuestion = 1;
     let results = { 1: {score:0, fb:""}, 2: {score:0, fb:""}, 3: {score:0, fb:""} };
     let selectedIdx = -1;
+    
+    // [모바일 대응] 전역 오디오 객체 하나를 재사용함
+    let ttsAudio = new Audio();
 
     const supportGuides = {
         "English": "Questions 1-2: Read aloud and describe the photo. Question 3: Listening comprehension. Please follow the signal.",
@@ -160,28 +159,33 @@
         examineeID = document.getElementById('examinee-id').value.trim();
         USER_API_KEY = document.getElementById('api-key-input').value.trim();
         if(!examineeID || !USER_API_KEY) return alert("수험번호와 API 키를 입력하세요.");
+        
+        // [모바일 대응] 사용자 클릭 시 오디오 엔진 Unlock
+        ttsAudio.play().then(() => {
+            ttsAudio.pause();
+            ttsAudio.currentTime = 0;
+        }).catch(() => {});
+
         goToPage('page-test-lang');
     }
 
+    // selectTestLang, handleLangNext, selectGuideLang, showInstructions 등 동일...
     function selectTestLang(lang) {
         testLang = lang;
         document.querySelectorAll('#page-test-lang .card').forEach(c => c.classList.remove('selected'));
         event.currentTarget.classList.add('selected');
         document.getElementById('lang-next-btn').style.display = 'block';
     }
-
     function handleLangNext() {
         if(testLang === 'ko') goToPage('page-guide-lang');
         else showInstructions();
     }
-
     function selectGuideLang(lang) {
         guideLang = lang;
         document.querySelectorAll('#page-guide-lang .card').forEach(c => c.classList.remove('selected'));
         event.currentTarget.classList.add('selected');
         document.getElementById('guide-next-btn').style.display = 'block';
     }
-
     function showInstructions() {
         if(testLang === 'ko') {
             document.getElementById('support-guide-area').style.display = 'block';
@@ -264,7 +268,7 @@
             try {
                 const teacherName = testData[testLang].teacher;
                 const prompt = `당신은 전문적인 ${teacherName}입니다. 수험생의 음성을 발음, 억양, 유창성 측면에서 한국어로 아주 상세하게 평가하세요. 마지막에 반드시 '종합 점수: XX점' 형식을 포함해야 합니다.`;
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${USER_API_KEY}`, {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${USER_API_KEY}`, {
                     method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: "audio/mp4", data: base64 } }]}]})
                 });
                 const data = await res.json();
@@ -315,12 +319,26 @@
         a.download = `${examineeID}_Q${n}.mp3`; a.click();
     }
 
+    // [모바일 대응] 구글 TTS 최적화 함수
     function playTTS(txt, cb) {
+        // 모바일 브라우저 보안 우회를 위해 client=tw-ob 파라미터 고정
         const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(txt)}&tl=${testLang}&client=tw-ob`;
-        const audio = new Audio(url);
-        audio.playbackRate = 1.0;
-        if(cb) audio.onended = cb;
-        audio.play().catch(e => { if(cb) cb(); });
+        
+        ttsAudio.src = url;
+        ttsAudio.playbackRate = 1.0;
+        
+        ttsAudio.onended = () => {
+            ttsAudio.onended = null; // 중복 방지
+            if(cb) cb();
+        };
+
+        const playPromise = ttsAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(e => {
+                console.warn("TTS Playback blocked:", e);
+                if(cb) setTimeout(cb, 1000); // 차단될 경우 1초 뒤 강제 진행
+            });
+        }
     }
 
     function runTimer(sec, lbl, cb) {
